@@ -36,7 +36,7 @@ import tensorflow as tf
 import torch
 from intervaltree import IntervalTree
 from torch.utils.data import DataLoader, Dataset
-from tqdm.auto import tqdm
+from tqdm.autonotebook import tqdm
 
 # import wandb
 import heareval.gpu_max_mem as gpu_max_mem
@@ -439,17 +439,44 @@ def task_embeddings(
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
+        mu = 0.
+        sigma = 0.
+        nb_samples = 0.
+
+        for audios, _ in dataloader:
+            if metadata["embedding_type"] == "scene":
+                embeddings = embedding.get_scene_embedding_as_numpy(audios)
+            elif metadata["embedding_type"] == "event":
+                embeddings, timestamps = embedding.get_timestamp_embedding_as_numpy(
+                    audios
+                )
+            else:
+                raise ValueError(
+                    f"Unknown embedding type: {metadata['embedding_type']}"
+                )
+
+            mu += embeddings.mean(0)
+            sigma += embeddings.std(0)
+            nb_samples += embeddings.shape[0]
+
+        mu /= nb_samples
+        sigma /= nb_samples
+
+        sigma[sigma == 0.0] = 1.0
+
         for audios, filenames in tqdm(dataloader):
             labels = [split_data[file] for file in filenames]
 
             if metadata["embedding_type"] == "scene":
                 embeddings = embedding.get_scene_embedding_as_numpy(audios)
+                embeddings = (embeddings - mu)/sigma
                 save_scene_embedding_and_labels(embeddings, labels, filenames, outdir)
 
             elif metadata["embedding_type"] == "event":
                 embeddings, timestamps = embedding.get_timestamp_embedding_as_numpy(
                     audios
                 )
+                embeddings = (embeddings - mu)/sigma
                 labels = get_labels_for_timestamps(labels, timestamps)
                 assert len(labels) == len(filenames)
                 assert len(labels[0]) == len(timestamps[0])
