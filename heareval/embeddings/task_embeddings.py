@@ -439,7 +439,11 @@ def task_embeddings(
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-        all_embeddings = []
+        sum_x1 = 0.
+        sum_x2 = 0.
+        n_samples = 0.
+
+        K = None
 
         for audios, _ in dataloader:
             if metadata["embedding_type"] == "scene":
@@ -453,11 +457,19 @@ def task_embeddings(
                     f"Unknown embedding type: {metadata['embedding_type']}"
                 )
 
-            all_embeddings.append(embeddings)
+            if K is None:
+                K = embeddings.sum(0)
 
-        all_embeddings = np.concatenate(all_embeddings, axis=0)
+            sum_x1 += (embeddings - K).sum(0)
+            sum_x2 += (embeddings - K).__pow__(2).sum(0)
+            n_samples += embeddings.shape[0]
 
-        mu, sigma = all_embeddings.mean(0), all_embeddings.std(0)
+        mu = K + sum_x1 / n_samples
+
+        sigma2 = (n_samples * sum_x2 - sum_x1 ** 2) / (n_samples * (n_samples - 1))
+        sigma = np.sqrt(sigma2)
+
+        assert np.isnan(sigma).sum() == 0, print(f'Found {np.isnan(sigma).sum()} NaN values. sigma2: {sorted(sigma)}')
 
         sigma[sigma == 0.0] = 1.0
 
