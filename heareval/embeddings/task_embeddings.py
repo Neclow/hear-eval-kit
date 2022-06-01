@@ -439,9 +439,7 @@ def task_embeddings(
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-        mu = 0.
-        sigma = 0.
-        nb_samples = 0.
+        all_embeddings = []
 
         for audios, _ in dataloader:
             if metadata["embedding_type"] == "scene":
@@ -455,12 +453,11 @@ def task_embeddings(
                     f"Unknown embedding type: {metadata['embedding_type']}"
                 )
 
-            mu += embeddings.mean(0)
-            sigma += embeddings.std(0)
-            nb_samples += embeddings.shape[0]
+            all_embeddings.append(embeddings)
 
-        mu /= nb_samples
-        sigma /= nb_samples
+        all_embeddings = np.concatenate(all_embeddings, axis=0)
+
+        mu, sigma = all_embeddings.mean(0), all_embeddings.std(0)
 
         sigma[sigma == 0.0] = 1.0
 
