@@ -458,7 +458,7 @@ def task_embeddings(
                 )
 
             if K is None:
-                K = embeddings.sum(0)
+                K = embeddings.mean(0)
 
             sum_x1 += (embeddings - K).sum(0)
             sum_x2 += (embeddings - K).__pow__(2).sum(0)
